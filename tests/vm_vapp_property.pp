@@ -15,7 +15,6 @@ vm_vapp_property { 'newProperty':
   category         => 'Application',
   description      => 'A test property created by Puppet',
   id               => 'testproperty',
-  label            => 'Test Property',
   type             => 'string',
   userconfigurable => 'true',
   value            => 'new string',

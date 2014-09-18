@@ -12,6 +12,5 @@ vm_vapp_property { 'newProperty':
   ensure           => absent,
   datacenter_name  => 'dc1',
   vm_name          => 'vm1',
-  label            => 'Test Property',
   transport        => Transport['vcenter'],
 }
