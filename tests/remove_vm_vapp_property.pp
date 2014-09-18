@@ -9,8 +9,8 @@ transport { 'vcenter':
 }
 
 vm_vapp_property { 'newProperty':
-  ensure           => absent,
-  datacenter_name  => 'dc1',
-  vm_name          => 'vm1',
-  transport        => Transport['vcenter'],
+  ensure      => absent,
+  datacenter  => 'dc1',
+  vm_name     => 'vm1',
+  transport   => Transport['vcenter'],
 }

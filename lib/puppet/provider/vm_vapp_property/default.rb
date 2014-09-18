@@ -1,15 +1,14 @@
 # Copyright (C) 2014 VMware, Inc.
 provider_path = Pathname.new(__FILE__).parent.parent
 require File.join(provider_path, 'vcenter')
-
-Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppet::Provider::Vcenter) do
+::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppet::Provider::Vcenter) do
   @doc = "Manages vCenter VMs' vApp Properties."
 
   Puppet::Type.type(:vm_vapp_property).properties.collect{|x| x.name}.each do |prop|
     camel_prop = PuppetX::VMware::Util.camelize(prop, :lower).to_sym
 
     define_method(prop) do
-      value = property[camel_prop]
+      value = current[camel_prop]
       case value
       when TrueClass  then :true
       when FalseClass then :false
@@ -24,11 +23,12 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
   end
 
   def create
-    Puppet.debug "Starting create method"
+    Puppet.debug "Starting create method for #{resource}"
     resource.eachproperty do |puppetproperty|
-      if puppetproperty.to_s != 'ensure' && resource[puppetproperty.to_s]
-        method_name = PuppetX::VMware::Util.camelize(puppetproperty.to_s, :lower).to_sym
-        newproperty.method("#{method_name}=").call(resource[puppetproperty.to_s])
+      puppetproperty = puppetproperty.to_s
+      if puppetproperty != 'ensure' && resource[puppetproperty]
+        camel_prop = PuppetX::VMware::Util.camelize(puppetproperty, :lower).to_sym
+        newproperty[camel_prop] = resource[puppetproperty]
       end
     end
     newproperty.key = new_key
@@ -40,6 +40,7 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
   end
   
   def destroy
+    Puppet.debug "Starting destroy method for #{resource}"
     vm.ReconfigVM_Task(
         :spec => virtualMachineConfigSpec(
             :remove
@@ -48,13 +49,13 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
   end
 
   def exists?
-    property
+    current
   end
 
   def virtualMachineConfigSpec(operation)
     spec = {:operation => operation }
     if operation == :remove
-      spec['removeKey'] = property_key(property.key)
+      spec['removeKey'] = property_key(current.key)
     else
       spec['info'] = newproperty
     end
@@ -75,7 +76,7 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
 
   def flush
     if @update
-      newproperty.key = property.key
+      newproperty.key = current.key
       vm.ReconfigVM_Task(
        :spec => virtualMachineConfigSpec(
          :edit
@@ -93,13 +94,18 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
   end
 
   def new_key
-    @newkey ||= vm.config.vAppConfig.property[-1].key
-    if @newkey.nil?
-      @newkey = 0
-    else
-      @newkey += 1
+    keys = []
+    vm.config.vAppConfig.property.each do |p|
+      keys.push( p.key )
     end
-    property_key @newkey 
+    
+    if keys.max
+      newkey = keys.max + 1
+    else
+      newkey = 0
+    end
+
+    property_key newkey
   end
 
   def findvm(folder,vm_name)
@@ -137,8 +143,8 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
     vm.config.vAppConfig.property.find {|p| p[:label] == resource[:label] }
   end
 
-  def property
-    @property ||= findproperty
+  def current
+    @current ||= findproperty
   end
 
 end
