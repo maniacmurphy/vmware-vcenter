@@ -201,8 +201,8 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
     @vm_obj
   end
 
-  def datacenter(name=resource[:datacenter_name])
-    vim.serviceInstance.find_datacenter(name) or raise Puppet::Error, "datacenter '#{resource[:datacenter_name]}' not found."
+  def datacenter(name=resource[:datacenter])
+    vim.serviceInstance.find_datacenter(name) or raise Puppet::Error, "datacenter '#{resource[:datacenter]}' not found."
   end
 
   def vm

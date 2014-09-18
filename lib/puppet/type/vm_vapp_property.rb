@@ -21,7 +21,7 @@ Puppet::Type.newtype(:vm_vapp_property) do
     desc "The VM that owns the property"
   end
 
-  newparam(:datacenter_name) do
+  newparam(:datacenter) do
     desc "The virtual datacenter in which the VM resides"
   end
 

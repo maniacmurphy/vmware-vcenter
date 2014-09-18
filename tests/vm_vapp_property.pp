@@ -10,7 +10,7 @@ transport { 'vcenter':
 
 vm_vapp_property { 'newProperty':
   ensure           => present,
-  datacenter_name  => 'dc1',
+  datacenter       => 'dc1',
   vm_name          => 'vm1',
   category         => 'Application',
   description      => 'A test property created by Puppet',
