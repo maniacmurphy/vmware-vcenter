@@ -15,6 +15,10 @@ Puppet::Type.newtype(:vm_vapp_property) do
 
   newparam(:name) do
     desc 'The resource name'
+
+    munge do |value|
+      @resource[:label] = value
+    end
   end
 
   newparam(:vm_name) do
