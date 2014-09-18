@@ -1,7 +1,4 @@
 # Copyright (C) 2014 VMware, Inc.
-provider_path = Pathname.new(__FILE__).parent.parent
-require File.join(provider_path, 'vcenter')
-
 Puppet::Type.newtype(:vm_vapp_property) do
 
   ensurable do
