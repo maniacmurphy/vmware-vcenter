@@ -18,7 +18,7 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
     end
 
     define_method("#{prop}=") do |value|
-      should[camel_prop] = value
+      @update = true
       newproperty[camel_prop] = value
     end
   end
@@ -74,13 +74,14 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
   end
 
   def flush
-    Puppet.debug "should is #{should.class} '#{should.inspect}'"
-    newproperty.key = property.key
-    vm.ReconfigVM_Task(
-      :spec => virtualMachineConfigSpec(
-        :edit
-      )
-    ).wait_for_completion
+    if @update
+      newproperty.key = property.key
+      vm.ReconfigVM_Task(
+       :spec => virtualMachineConfigSpec(
+         :edit
+        )
+      ).wait_for_completion
+    end
   end
 
   def property_key (key)
@@ -140,9 +141,4 @@ Puppet::Type.type(:vm_vapp_property).provide(:vm_vapp_property, :parent => Puppe
     @property ||= findproperty
   end
 
-  private
-
-  def should
-    @should ||= {}
-  end
 end
