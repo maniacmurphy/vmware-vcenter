@@ -6,6 +6,10 @@ Puppet::Type.newtype(:esx_system_resource) do
     desc "ESX hostname or ip address."
   end
 
+  newparam(:system_resource) do
+    desc "The system resource to be managed"
+  end
+
   newproperty(:cpu_reservation) do
     desc "System resource CPU reservation in MHz"
     newvalues(/\d{1,}/)
@@ -21,28 +25,42 @@ Puppet::Type.newtype(:esx_system_resource) do
     newvalues(/\d{1,}/)
   end
 
-  newproperty(:cpu_unlimited) do
+  newparam(:cpu_unlimited) do
     desc "Enable unlimited CPU resources"
     newvalues(:true,:false)
+    munge do |value|
+      if value == 'true'
+        @resource[:cpu_limit] = -1
+      elsif value == 'false' && !(@resource[:cpu_limit])
+        @resource[:cpu_limit] = 0
+      end
+    end
   end
  
-  newproperty(:mem_reservation) do
+  newproperty(:memory_reservation) do
     desc "System resource memory reservation in MB"
     newvalues(/\d{1,}/)
   end
  
-  newproperty(:mem_expandable_reservation) do
+  newproperty(:memory_expandable_reservation) do
     desc "Enable expandable reservation"
     newvalues(:true, :false)
   end
  
-  newproperty(:mem_limit) do
+  newproperty(:memory_limit) do
     desc "Memory limit in MB"
     newvalues(/\d{1,}/)
   end
 
-   newproperty(:mem_unlimited) do
+   newparam(:memory_unlimited) do
      desc "Enable unlimited Memory resources"
      newvalues(:true,:false)
+     munge do |value|
+       if value == 'true'
+         @resource[:memory_limit] = -1
+       elsif value == 'false' && !(@resource[:memory_limit])
+         @resource[:memory_limit] = 0
+       end
+     end
    end
 end
