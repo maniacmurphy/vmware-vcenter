@@ -2,7 +2,11 @@
 Puppet::Type.newtype(:esx_system_resource) do
   @doc = "This resource allows the configuration of system resources of a host that are viewed und er the 'System Resource Allocation' section of the vSphere client"
 
-  newparam(:host, :namevar => true) do
+  newparam(:name) do
+    desc "A unique name that will allow for setting the same resource on multiple hosts or multiple resources on the same host through multiple resource calls within your puppet manifest."
+  end
+
+  newparam(:host,) do
     desc "ESX hostname or ip address."
   end
 
