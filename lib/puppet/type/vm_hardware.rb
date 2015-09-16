@@ -8,7 +8,8 @@ require File.join module_lib, 'puppet_x/vmware/mapper'
 Puppet::Type.newtype(:vm_hardware) do
   @doc = "Manage a vCenter VM's virtual hardware settings. See http://pubs.vmware.com/vsphere-55/index.jsp#com.vmware.wssdk.apiref.doc/vim.vm.VirtualHardware.html for class details"
 
-
+  #### create parameters ####
+  # the parameters are specific data points needed to set the properties pulled in by mapper and may change between types 
   newparam(:vm_name, :namevar => true) do
     desc "The name of the target VM"
   end
@@ -18,6 +19,8 @@ Puppet::Type.newtype(:vm_hardware) do
     newvalues(/\w/)
   end
 
+  #### create resource properties from mapper ####
+  # besides the map name, this section should remain the same between types created using vmware mapper
   map = PuppetX::VMware::Mapper.new_map('VirtualHardwareMap')
   map.leaf_list.each do |leaf|
     option = {}
