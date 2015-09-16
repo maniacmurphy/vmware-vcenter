@@ -1,45 +1,58 @@
 # Copyright (C) 2014 VMware, Inc.
-provider_path = Pathname.new(__FILE__).parent.parent
-require File.join(provider_path, 'vcenter')
+module_lib    = Pathname.new(__FILE__).parent.parent.parent.parent
+require File.join module_lib, 'puppet_x/vmware/mapper'
+require File.join module_lib, 'puppet/provider/vcenter'
 
 Puppet::Type.type(:vm_hardware).provide(:vm_hardware, :parent => Puppet::Provider::Vcenter) do
   @doc = "Manage a vCenter VM's virtual hardware settings. See http://pubs.vmware.com/vsphere-55/index.jsp#com.vmware.wssdk.apiref.doc/vim.vm.VirtualHardware.html for class details"
 
   Puppet::Type.type(:vm_hardware).properties.collect{|x| x.name}.each do |prop|
-    Puppet.debug "Auto-discovered property [#{prop}] in vm_hardware"
+    Puppet.debug "Auto-discovered property [#{prop}] for type [#{self.name}]"
     camel_prop = PuppetX::VMware::Util.camelize(prop, :lower).to_sym
-    case prop
-    when :memory_mb
-      camel_prop = :memoryMB
-    else
-      camel_prop = camel_prop
-    end
-    Puppet.debug "camel_prop set to #{camel_prop}"
 
-    if prop != :num_cpus
-      define_method(prop) do
+    define_method(prop) do
+      case camel_prop
+      when :numCpus
+        value = current[:numCPU]
+      when :memoryMb
+        value = current[:memoryMB]
+      when :virtualIch7mPresent
+        value = current[:virtualICH7MPresent]
+      when :virtualSmcPresent
+        value = current[:virtualSMCPresent]
+      else
         value = current[camel_prop]
-        case value
-        when TrueClass  then :true
-        when FalseClass then :false
-        else value
-        end
       end
-
-      define_method("#{prop}=") do |value|
-        @update = true
-        hardwareProperties[camel_prop] = value
+=begin
+      if camel_prop == :numCpus
+        value = current[:numCPU]
+      else
+        value = current[camel_prop]
+      end
+=end
+      case value
+      when TrueClass  then :true
+      when FalseClass then :false
+      else value
       end
     end
-  end
 
-  def num_cpus
-    current[:numCPU]
-  end
-
-  def num_cpus=(value)
-   @update = true
-   hardwareProperties[:numCPUs] = value
+    define_method("#{prop}=") do |value|
+      @update = true
+      case camel_prop
+      when :numCpus
+        c_prop  = :numCPUs
+      when :memoryMb
+        c_prop = :memoryMB
+      when :virtualIch7mPresent
+        c_prop = :virtualICH7MPresent
+      when :virtualSmcPresent
+        c_prop = :virtualSMCPresent
+      else
+        c_prop = camel_prop
+      end
+      hardwareProperties[c_prop] = value
+    end
   end
 
   def virtualMachineConfigSpec
@@ -90,7 +103,6 @@ Puppet::Type.type(:vm_hardware).provide(:vm_hardware, :parent => Puppet::Provide
   end
 
   def hardware
-#    require 'pry'; binding.pry
     vm.config.hardware
   end
 
