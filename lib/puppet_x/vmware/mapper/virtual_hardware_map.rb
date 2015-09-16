@@ -21,9 +21,9 @@ module PuppetX::VMware::Mapper
           :munge    => PuppetX::VMware::Mapper::munge_to_i,
         ],
         :numCPUs => LeafData[
-          :desc     => "The total number of vCPUs on the target VM. numCPUs % numCoresPerSocket should always equal 0",
-          :validate => PuppetX::VMware::Mapper::validate_i_ge(1),
-          :munge    => PuppetX::VMware::Mapper::munge_to_i,
+          :desc        => "The total number of vCPUs on the target VM. numCPUs % numCoresPerSocket should always equal 0",
+          :validate    => PuppetX::VMware::Mapper::validate_i_ge(1),
+          :munge       => PuppetX::VMware::Mapper::munge_to_i,
           :path_is_now => [:numCPU],
         ],
         :virtualICH7MPresent => LeafData[
