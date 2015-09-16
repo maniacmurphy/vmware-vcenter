@@ -66,7 +66,8 @@ class Puppet::Provider::Vcenter <  Puppet::Provider
     end
   end
 
-  def findvm(folder)
+  def findvms(folder)
+  # Returns all VMs under target folder's hierarchy
     vms = []
     folder.children.each do |c|
       puts c.class
@@ -76,9 +77,43 @@ class Puppet::Provider::Vcenter <  Puppet::Provider
         vms += findvm(c)
       when RbVmomi::VIM::VirtualMachine
         vms << c
+      when RbVmomi::VIM::VirtualApp
+        f.vm.each do |v|
+          if v.name == vm_name
+            @vm_obj = f
+            break
+          end
+        end
+      else
+        Puppet.warning "Puppet::Provider::Vcenter::findvm unknown child type found: #{f.class}"
+        exit
       end
     end
     vms
+  end
+
+  def findvm(folder,vm_name)
+  # Returns the first matching VM under target folders hierarchy
+    folder.children.each do |f|
+      break if @vm_obj
+      case f
+      when RbVmomi::VIM::Folder
+        findvm(f,vm_name)
+      when RbVmomi::VIM::VirtualMachine
+        @vm_obj = f if f.name == vm_name
+      when RbVmomi::VIM::VirtualApp
+        f.vm.each do |v|
+          if v.name == vm_name
+            @vm_obj = f
+            break
+          end
+        end
+      else
+        Puppet.warning "Puppet::Provider::Vcenter::findvm unknown child type found: #{f.class}"
+        exit
+      end
+    end
+    @vm_obj
   end
 
   def locate(path, type=nil)
