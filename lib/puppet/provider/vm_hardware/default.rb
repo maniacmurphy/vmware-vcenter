@@ -47,7 +47,6 @@ Puppet::Type.type(:vm_hardware).provide(:vm_hardware, :parent => Puppet::Provide
 
   def flush
     if @flush_required
-    require 'pry'; binding.pry
       vm.ReconfigVM_Task(
        :spec => RbVmomi::VIM::VirtualMachineConfigSpec( config_should )
       ).wait_for_completion
