@@ -58,36 +58,28 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
     config_is_now
   end
 
-  def config_should
-    @config_should ||= is_now_hash config_is_now || {}
-  end
-
   ##### begin standard provider methods #####
   # these methods should exist in all ensurable providers, but content will diff
+
+  def config_should
+    @config_should ||= config_hash || {}
+  end
 
   def config_is_now
     @config_is_now ||= map.annotate_is_now(virtual_network_card) if virtual_network_card
   end
 
   def flush
-    if !config_is_now
-      operation = :add
-    else
-      operation = :edit
-    end
-
     if @flush_required
-      vm.ReconfigVM_Task(
-        :spec => virtualMachineConfigSpec( operation )
-      ).wait_for_completion
+      operation = config_is_now ? :edit : :add
+      reconfigVM( operation )
     end
   end
 
   def destroy
-    vm.ReconfigVM_Task(
-      :spec => virtualMachineConfigSpec( :remove )
-    ).wait_for_completion
+    reconfigVM( :remove )
   end
+
   ##### begin misc provider specific methods #####
   # This section is for overrides of automatically-generated property getters and setters. Many
   # providers don't need any overrides. The most common use of overrides is to allow user input
@@ -96,7 +88,7 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
   def portgroup
     case config_is_now[:backing].class.to_s 
     when 'VirtualEthernetCardDistributedVirtualPortBackingInfo'
-      pg = find_dv_portgroup_by_key config_is_now[:backing][:port][:portgroupKey]
+      pg = datacenter.network.find {|n| n.key == config_is_now[:backing][:port][:portgroupKey] if n.class.to_s == 'DistributedVirtualPortgroup'}
       pg.name
     when 'VirtualEthernetCardNetworkBackingInfo'
       config_is_now[:backing][:deviceName]
@@ -116,7 +108,7 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
       config_should[:backing] = RbVmomi::VIM::VirtualEthernetCardDistributedVirtualPortBackingInfo(:port => port)
     when :standard
       config_should[:backing] = RbVmomi::VIM::VirtualEthernetCardNetworkBackingInfo(
-        :deviceName => resource[:portgroup],
+        :deviceName => standardPortgroup.name,
       )
     else
       raise Puppet::Error, "#{resource.inspect} missing parameter 'portgroup_type': valid values [distrubuted, standard]"
@@ -150,19 +142,33 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
   # These methods are provider specific and that can be private
   private
 
-  def is_now_hash(config)
-    config_hash = {}
+  def config_hash
+    config = {}
     if config_is_now
-      config_hash[:connectable] = config[:connectable].props
-      config_hash[:key]         = config[:key]
+      config[:connectable] = config_is_now[:connectable].props
+      config[:key]         = config_is_now[:key]
     else
-      config_hash[:key]         = -100
+      config[:key]         = -100
     end
-    config_hash
+    config
   end
  
   def virtual_network_card
     vm.config.hardware.device.find { |d| d.deviceInfo.label.downcase == resource[:name].downcase }
+  end
+
+  def distributedPortgroup
+    @distributedPortgroup ||= datacenter.network.find {|n| n.name == resource[:portgroup] if n.class.to_s == 'DistributedVirtualPortgroup'} or raise Puppet::Error, "#{resource.inspect} unable to find distrubuted portgroup '#{resource[:portgroup]}' in datacenter '#{resource[:datacenter]}'."
+  end
+
+  def standardPortgroup
+    @standardPortgroup ||= datacenter.network.find {|n| n.name == resource[:portgroup] if n.class.to_s == 'Network'} or raise Puppet::Error, "#{resource.inspect} unable to find standard portgroup '#{resource[:portgroup]}' in datacenter '#{resource[:datacenter]}'."
+  end
+
+  def reconfigVM(operation)
+    vm.ReconfigVM_Task(
+      :spec => virtualMachineConfigSpec( operation )
+    ).wait_for_completion
   end
 
   def virtualMachineConfigSpec(operation)
@@ -186,7 +192,6 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
           RbVmomi::VIM::VirtualVmxnet3( deviceSpec.props )
         end
      end
-
     spec = {
       :operation => operation,
       :device    => deviceSpec
@@ -220,18 +225,6 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
       end
     end
     @vm_obj
-  end
-
-  def find_dv_portgroup_by_key(pg_key)
-    datacenter.network.find {|n| n.key == pg_key if n.class.to_s == 'DistributedVirtualPortgroup' }
-  end
-
-  def distributedPortgroup
-    @distributedPortgroup ||= datacenter.network.find {|n| n.name == resource[:portgroup] if n.class.to_s == 'DistributedVirtualPortgroup'} or raise Puppet::Error, "#{resource.inspect} unable to find distrubuted portgroup '#{resource[:portgroup]}' in datacenter '#{resource[:datacenter]}'."
-  end
-
-  def standardPortgroup
-    @standardPortgroup ||= datacenter.network.find {|n| n.name == resource[:portgroup] if n.class.to_s == 'Network'} or raise Puppet::Error, "#{resource.inspect} unable to find standard portgroup '#{resource[:portgroup]}' in datacenter '#{resource[:datacenter]}'."
   end
 
   def datacenter(name=resource[:datacenter])
