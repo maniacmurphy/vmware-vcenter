@@ -7,7 +7,7 @@ require File.join module_lib, 'puppet_x/vmware/mapper'
 require File.join module_lib, 'puppet/provider/vcenter'
 
 Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter) do
-  @doc =
+  @doc = "Manage a vCenter VM's virtual network adapter settings. See http://pubs.vmware.com/vsphere-55/index.jsp#com.vmware.wssdk.apiref.doc/vim.vm.device.VirtualEthernetCard.html for class details"
 
   ##### begin common provider methods #####
   # besides name, these methods should look exactly the same for all providers
@@ -18,6 +18,25 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
   define_method(:map) do
     @map ||= map
   end
+
+  def create
+    @flush_required = true
+    @create_message ||= []
+    # fetch properties from resource using provider setters
+    map.leaf_list.each do |leaf|
+      p = leaf.prop_name
+      unless (value = @resource[p]).nil?
+        self.send("#{p}=".to_sym, value)
+        @create_message << "#{leaf.full_name} => #{value.inspect}"
+      end
+    end
+  end
+
+  def create_message
+    @create_message ||= []
+    "created using {#{@create_message.join ", "}}"
+  end
+
   map.leaf_list.each do |leaf|
     Puppet.debug "Auto-discovered property [#{leaf.prop_name}] for type [#{self.name}]"
 
@@ -47,33 +66,46 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
   # these methods should exist in all ensurable providers, but content will diff
 
   def config_is_now
-    @config_is_now ||= ( @creating ? {} : map.annotate_is_now(virtual_network_card) )
+    @config_is_now ||= map.annotate_is_now(virtual_network_card) if virtual_network_card
   end
 
   def flush
+    if !config_is_now
+      operation = :add
+    else
+      operation = :edit
+    end
+
     if @flush_required
       vm.ReconfigVM_Task(
-        :spec => virtualMachineConfigSpec( :edit ) 
+        :spec => virtualMachineConfigSpec( operation )
       ).wait_for_completion
     end
   end
 
+  def destroy
+    vm.ReconfigVM_Task(
+      :spec => virtualMachineConfigSpec( :remove )
+    ).wait_for_completion
+  end
   ##### begin misc provider specific methods #####
   # This section is for overrides of automatically-generated property getters and setters. Many
   # providers don't need any overrides. The most common use of overrides is to allow user input
   # of component names instead of object IDs (REST APIs) or Managed Object References (SOAP APIs).
+  alias get_portgroup portgroup
   def portgroup
     case config_is_now[:backing].class.to_s 
     when 'VirtualEthernetCardDistributedVirtualPortBackingInfo'
-      pg = find_dv_portgroup_by_key config_is_now[:backing][:port][:portgroupKey] 
+      pg = find_dv_portgroup_by_key config_is_now[:backing][:port][:portgroupKey]
       pg.name
     when 'VirtualEthernetCardNetworkBackingInfo'
       config_is_now[:backing][:deviceName]
     else
-      raise Puppet::Error, "#{resource.inspect} returned unrecognized backing class: '#{config_is_now[:backing].class.to_s}'" 
+      raise Puppet::Error, "#{resource.inspect} returned unrecognized backing class: '#{config_is_now[:backing].class.to_s}'"
     end
   end
 
+  alias set_portgroup portgroup=
   def portgroup=(value)
     case resource[:portgroup_type]
     when :distributed
@@ -87,11 +119,12 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
         :deviceName => resource[:portgroup],
       )
     else
-      raise Puppet::Error, "#{resource.inspect} missing parameter 'portgroup_type': valid values [distrubuted, standard]" 
+      raise Puppet::Error, "#{resource.inspect} missing parameter 'portgroup_type': valid values [distrubuted, standard]"
     end
     @flush_required = true
   end
 
+  alias get_type type
   def type
     case virtual_network_card.class.to_s
     when 'VirtualE1000'
@@ -107,21 +140,23 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
     end
   end
 
+  alias set_type type=
   def type=(value)
     @newType = true
     @flush_required = true
   end
- 
+
   ##### begin private provider specific methods section #####
   # These methods are provider specific and that can be private
   private
 
   def is_now_hash(config)
-    if config_is_now.class.to_s != 'Hash'
-      config_hash = { 
-        :connectable => config[:connectable].props,
-        :key         => config[:key]
-      }
+    config_hash = {}
+    if config_is_now
+      config_hash[:connectable] = config[:connectable].props
+      config_hash[:key]         = config[:key]
+    else
+      config_hash[:key]         = -100
     end
     config_hash
   end
@@ -131,10 +166,6 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
   end
 
   def virtualMachineConfigSpec(operation)
-    #if operation == :edit
-    #  config_should[:key] = config_is_now[:key] 
-    #end
-#require 'pry'; binding.pry
     deviceSpec = map.objectify config_should
     if @newType
       nicType = resource[:type]
@@ -198,7 +229,7 @@ Puppet::Type.type(:vm_nic).provide(:vm_nic, :parent => Puppet::Provider::Vcenter
   def distributedPortgroup
     @distributedPortgroup ||= datacenter.network.find {|n| n.name == resource[:portgroup] if n.class.to_s == 'DistributedVirtualPortgroup'} or raise Puppet::Error, "#{resource.inspect} unable to find distrubuted portgroup '#{resource[:portgroup]}' in datacenter '#{resource[:datacenter]}'."
   end
-  
+
   def standardPortgroup
     @standardPortgroup ||= datacenter.network.find {|n| n.name == resource[:portgroup] if n.class.to_s == 'Network'} or raise Puppet::Error, "#{resource.inspect} unable to find standard portgroup '#{resource[:portgroup]}' in datacenter '#{resource[:datacenter]}'."
   end

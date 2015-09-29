@@ -6,8 +6,8 @@ require File.join vmware_module.path, 'lib/puppet/property/vmware'
 require File.join module_lib, 'puppet_x/vmware/mapper'
 
 Puppet::Type.newtype(:vm_nic) do
-  @doc = ""
-
+  @doc = "Manage a vCenter VM's virtual network adapter settings. See http://pubs.vmware.com/vsphere-55/index.jsp#com.vmware.wssdk.apiref.doc/vim.vm.device.VirtualEthernetCard.html for class details"
+  
   #### create parameters ####
   # the parameters are specific data points needed to set the properties pulled in by mapper and may change between types 
   ensurable do
@@ -46,14 +46,6 @@ Puppet::Type.newtype(:vm_nic) do
   newparam(:portgroup_type) do
     desc "The type of portgroup to assign to"
     newvalues(:standard, :distributed)
-  end
-
-  newproperty(:type) do
-    desc "The type of network adapter to manage"
-    newvalues(:e1000, :e1000e, :vmxnet2, :vmxnet3)
-  end
-  newproperty(:portgroup) do
-    desc "The name of the portgroup this adapter is connected on"
   end
 
   #### create resource properties from mapper ####

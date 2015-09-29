@@ -10,6 +10,13 @@ module PuppetX::VMware::Mapper
         Node => NodeData[
           :node_type => 'VirtualEthernetCard',
         ],
+        :type => LeafData[
+          :desc       => 'Virtual Ethernet Card Type',
+          :valid_enum => [:e1000, :e1000e, :vmxnet2, :vmxnet3]
+        ],
+        :portgroup  => LeafData[
+          :desc  => "The name of the portgroup this adapter is connected on"
+        ],
         :addressType => LeafData[
           :desc       => 'MAC address type',
           :valid_enum => [:manual, :generated, :assigned]
